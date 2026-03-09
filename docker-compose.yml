@@ -1,0 +1,17 @@
+services:
+  work-notes:
+    build: .
+    container_name: work-notes
+    restart: unless-stopped
+    ports:
+      - "8310:8000"
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

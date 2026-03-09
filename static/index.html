@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#151518">
+  <title>Work Notes</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23e2a846'/><path d='M30 35h40M30 50h30M30 65h35' stroke='%23151518' stroke-width='5' stroke-linecap='round'/></svg>">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=6">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <h1 class="logo">Work Notes</h1>
+    </div>
+
+    <div class="header-center">
+      <div class="search-box">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search notes... ( / )">
+        <kbd class="search-hint">/</kbd>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="stats-strip" id="statsStrip">
+        <span class="stat" id="statToday">0 today</span>
+        <span class="stat" id="statTasks">0 tasks</span>
+        <span class="stat" id="statPending">0 pending</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+
+      <!-- COMPOSE CARD -->
+      <div class="card compose-card">
+        <div class="compose-glow"></div>
+
+        <textarea id="noteText" placeholder="Meeting notes, action items, thoughts...
+
+Just dump it here. AI handles the rest."></textarea>
+
+        <div class="meta-row">
+          <input type="text" id="meetingInput" placeholder="Meeting (optional)">
+          <input type="text" id="projectInput" placeholder="Project (optional)">
+          <select id="prioritySelect">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+
+        <div class="tag-row" id="tagRow">
+          <button class="tag-chip" data-tag="meeting">meeting</button>
+          <button class="tag-chip" data-tag="action-item">action-item</button>
+          <button class="tag-chip" data-tag="decision">decision</button>
+          <button class="tag-chip" data-tag="idea">idea</button>
+          <button class="tag-chip" data-tag="blocker">blocker</button>
+          <button class="tag-chip" data-tag="status">status</button>
+        </div>
+
+        <button class="capture-btn" id="sendBtn">
+          Capture Note
+          <kbd>Ctrl+Enter</kbd>
+        </button>
+
+        <div class="flash" id="flash"></div>
+      </div>
+
+      <!-- TASKS PANEL -->
+      <div class="card tasks-card">
+        <button class="tasks-toggle" id="tasksToggle">
+          <span class="tasks-title">Tasks</span>
+          <span class="tasks-count" id="tasksCount"></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="tasks-content" id="tasksContent"></div>
+      </div>
+
+      <!-- MINI DASHBOARD -->
+      <div class="card dash-card" onclick="cycleDashboard()">
+        <div class="dash-header">
+          <span class="dash-label" id="dashLabel">Activity (7d)</span>
+          <span class="dash-cycle">click to cycle</span>
+        </div>
+        <canvas id="dashCanvas"></canvas>
+      </div>
+
+      <!-- DAILY BRIEF CARD -->
+      <div class="card brief-card">
+        <button class="brief-toggle" id="briefToggle">
+          <span class="brief-title">Daily Brief</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="brief-content" id="briefContent"></div>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT MAIN -->
+    <main class="feed">
+      <div class="filter-bar">
+        <div class="filter-tabs" id="projectTabs">
+          <button class="filter-tab active" data-filter="all">All</button>
+        </div>
+        <div class="filter-tabs" id="tagTabs"></div>
+      </div>
+      <div class="notes-list" id="notesList"></div>
+    </main>
+
+  </div>
+
+  <!-- KEYBOARD SHORTCUT OVERLAY -->
+  <div class="shortcut-overlay" id="shortcutOverlay">
+    <div class="shortcut-card">
+      <h3>Keyboard Shortcuts</h3>
+      <div class="shortcut-row"><kbd>Ctrl+Enter</kbd><span>Capture note</span></div>
+      <div class="shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
+      <div class="shortcut-row"><kbd>n</kbd><span>New note</span></div>
+      <div class="shortcut-row"><kbd>Esc</kbd><span>Clear / close</span></div>
+      <div class="shortcut-row"><kbd>?</kbd><span>Toggle overlay</span></div>
+    </div>
+  </div>
+
+  <!-- EDIT MODAL -->
+  <div class="edit-overlay" id="editOverlay">
+    <div class="edit-modal">
+      <div class="edit-header">
+        <h3>Edit Note</h3>
+        <button class="edit-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <textarea id="editContent" placeholder="Note content..."></textarea>
+      <div class="meta-row">
+        <input type="text" id="editMeeting" placeholder="Meeting (optional)">
+        <input type="text" id="editProject" placeholder="Project (optional)">
+        <select id="editPriority">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      <div class="tag-row">
+        <button class="tag-chip edit-tag-chip" data-tag="meeting" onclick="this.classList.toggle('active')">meeting</button>
+        <button class="tag-chip edit-tag-chip" data-tag="action-item" onclick="this.classList.toggle('active')">action-item</button>
+        <button class="tag-chip edit-tag-chip" data-tag="decision" onclick="this.classList.toggle('active')">decision</button>
+        <button class="tag-chip edit-tag-chip" data-tag="idea" onclick="this.classList.toggle('active')">idea</button>
+        <button class="tag-chip edit-tag-chip" data-tag="blocker" onclick="this.classList.toggle('active')">blocker</button>
+        <button class="tag-chip edit-tag-chip" data-tag="status" onclick="this.classList.toggle('active')">status</button>
+      </div>
+      <div class="edit-actions">
+        <button class="action-btn delete-btn" onclick="deleteNote(editingNoteId); closeEditModal()">Delete</button>
+        <div style="flex:1"></div>
+        <button class="copy-btn" onclick="closeEditModal()">Cancel</button>
+        <button class="capture-btn" onclick="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=6"></script>
+</body>
+</html>
