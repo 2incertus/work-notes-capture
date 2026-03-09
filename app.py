@@ -19,7 +19,7 @@ app = FastAPI()
 
 STATIC_DIR = Path(__file__).parent / "static"
 DB_PATH = "/data/notes.db"
-CHAINLIT_WEBHOOK_URL = os.getenv("CHAINLIT_WEBHOOK_URL", "http://chainlit:8000/api/work-notes/process")
+CHAINLIT_WEBHOOK_URL = os.getenv("CHAINLIT_WEBHOOK_URL", "")
 VIKUNJA_URL = os.getenv("VIKUNJA_URL", "http://localhost:3456")
 VIKUNJA_TOKEN = os.getenv("VIKUNJA_TOKEN", "")
 
@@ -74,19 +74,20 @@ async def create_note(request: Request):
         await db.commit()
         note_id = cursor.lastrowid
 
-    # Fire async webhook to Chainlit for AI processing (don't wait)
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(CHAINLIT_WEBHOOK_URL, json={
-                "note_id": note_id,
-                "content": content,
-                "tags": body.get("tags", []),
-                "meeting": meeting,
-                "project": project,
-                "priority": priority,
-            })
-    except Exception as e:
-        log.warning(f"Webhook failed (will retry later): {e}")
+    # Fire async webhook for AI processing (don't wait)
+    if CHAINLIT_WEBHOOK_URL:
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(CHAINLIT_WEBHOOK_URL, json={
+                    "note_id": note_id,
+                    "content": content,
+                    "tags": body.get("tags", []),
+                    "meeting": meeting,
+                    "project": project,
+                    "priority": priority,
+                })
+        except Exception as e:
+            log.warning(f"Webhook failed (will retry later): {e}")
 
     return JSONResponse({"ok": True, "id": note_id}, status_code=201)
 
@@ -158,7 +159,9 @@ async def update_result(note_id: int, request: Request):
 
 @app.get("/api/brief")
 async def get_brief():
-    """Proxy to Chainlit brief endpoint."""
+    """Proxy to AI brief endpoint."""
+    if not CHAINLIT_WEBHOOK_URL:
+        return JSONResponse({"error": "AI webhook not configured"}, status_code=503)
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{CHAINLIT_WEBHOOK_URL.rsplit('/', 1)[0]}/brief")

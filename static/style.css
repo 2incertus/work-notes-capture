@@ -107,7 +107,13 @@ body {
   color: var(--text-dim);
   font-family: var(--font-mono);
 }
-.stat { white-space: nowrap; }
+@keyframes statBump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); color: var(--accent); }
+  100% { transform: scale(1); }
+}
+.stat { white-space: nowrap; transition: color 0.3s; }
+.stat.bumped { animation: statBump 0.3s ease-out; }
 
 /* === Layout === */
 .layout {
@@ -162,10 +168,17 @@ body {
   line-height: 1.5;
   transition: border-color 0.15s;
 }
+@keyframes typingGlow {
+  0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
+  50% { box-shadow: 0 0 18px rgba(226,168,70,0.15); }
+}
 .compose-card textarea:focus {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: 0 0 12px var(--accent-glow);
+}
+.compose-card textarea.typing {
+  animation: typingGlow 2s ease-in-out infinite;
 }
 .compose-card textarea::placeholder { color: var(--text-dim); }
 
@@ -212,15 +225,26 @@ body {
   color: var(--text-dim);
 }
 .tag-chip:hover { color: var(--text); border-color: rgba(255,255,255,0.12); }
+@keyframes chipPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
 .tag-chip.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #151518;
   font-weight: 500;
+  animation: chipPop 0.25s ease-out;
 }
 
 /* Capture button */
+@keyframes btnRipple {
+  0% { box-shadow: 0 0 0 0 rgba(226,168,70,0.5); }
+  100% { box-shadow: 0 0 0 14px rgba(226,168,70,0); }
+}
 .capture-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,13 +258,22 @@ body {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: all 0.2s;
+  overflow: hidden;
 }
 .capture-btn:hover:not(:disabled) {
   box-shadow: 0 0 16px rgba(226,168,70,0.3);
+  transform: translateY(-1px);
 }
 .capture-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.capture-btn:active:not(:disabled) { opacity: 0.7; transform: scale(0.98); }
+.capture-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  animation: btnRipple 0.4s ease-out;
+}
+.capture-btn.success {
+  background: var(--green);
+  animation: btnRipple 0.5s ease-out;
+}
 .capture-btn kbd {
   background: rgba(21,21,24,0.2);
   border-radius: 4px;
@@ -329,9 +362,16 @@ body {
   padding: 0;
 }
 .task-check:hover { border-color: var(--accent); }
+@keyframes checkBounce {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.3); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
 .task-check.done {
   background: var(--green);
   border-color: var(--green);
+  animation: checkBounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .task-check.done::after {
   content: '';
@@ -480,6 +520,7 @@ body {
 .filter-tab.active {
   color: var(--text);
   border-bottom-color: var(--accent);
+  animation: chipPop 0.2s ease-out;
 }
 .filter-dot {
   width: 7px;
@@ -610,6 +651,54 @@ body {
   color: var(--accent-dim);
 }
 
+/* Linked tasks (inside note card) */
+.note-linked-tasks {
+  display: none;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.note-card.expanded .note-linked-tasks { display: block; }
+.linked-tasks-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  margin-bottom: 6px;
+}
+.linked-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.linked-task:last-child { border-bottom: none; }
+.linked-task-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.linked-task.done .linked-task-title {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+.linked-task .task-check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.linked-task .task-project-badge { font-size: 8px; }
+.linked-task .task-due { font-size: 10px; }
+
 /* Note actions bar */
 .note-actions {
   display: none;
@@ -637,7 +726,7 @@ body {
   transition: all 0.15s;
 }
 .copy-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.12); }
-.copy-btn.copied { color: var(--green); border-color: var(--green); }
+.copy-btn.copied { color: var(--green); border-color: var(--green); animation: chipPop 0.2s ease-out; }
 
 /* Icon buttons (edit / delete) */
 .icon-btn {

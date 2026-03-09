@@ -109,6 +109,8 @@ async function submitNote() {
     });
     if (resp.ok) {
       flash(randomFrom(CAPTURE_MESSAGES), 'var(--green)');
+      btn.classList.add('success');
+      setTimeout(() => btn.classList.remove('success'), 600);
       await loadNotes();
     } else {
       flash('Failed to save', 'var(--red)');
@@ -126,6 +128,15 @@ async function submitNote() {
 }
 
 $('#sendBtn').addEventListener('click', submitNote);
+
+/* === Typing indicator === */
+let _typingTimer;
+$('#noteText').addEventListener('input', () => {
+  const ta = $('#noteText');
+  ta.classList.add('typing');
+  clearTimeout(_typingTimer);
+  _typingTimer = setTimeout(() => ta.classList.remove('typing'), 1500);
+});
 
 /* === Flash Message === */
 function flash(msg, color) {
@@ -201,6 +212,48 @@ function filteredNotes() {
   return notes;
 }
 
+/* === Link Tasks to Notes === */
+function findLinkedTasks(note) {
+  try {
+  if (!allTasks.length) return [];
+  if (!note.result?.tasks_created) return [];
+
+  // 1. Explicit task IDs from webhook result (best case)
+  if (note.result.task_ids?.length) {
+    return allTasks.filter(t => note.result.task_ids.includes(t.id));
+  }
+
+  // 2. Fuzzy match: tasks created within 5 min of note, with content overlap
+  const noteTs = note.created_at * 1000; // ms
+  const window = 5 * 60 * 1000; // 5 min
+
+  // Build keyword set from note content (words 4+ chars)
+  const words = note.content.toLowerCase().split(/\W+/).filter(w => w.length >= 4);
+  const entities = (note.result.entities || []).map(e => e.toLowerCase());
+  const keywords = new Set([...words, ...entities]);
+
+  const candidates = allTasks.filter(t => {
+    const taskTs = new Date(t.created).getTime();
+    const timeClose = Math.abs(taskTs - noteTs) < window;
+
+    // Content overlap: task title words match note keywords
+    const titleWords = t.title.toLowerCase().split(/\W+/).filter(w => w.length >= 4);
+    const overlap = titleWords.some(w => keywords.has(w));
+
+    // Project match
+    const projMatch = note.project && t.project && t.project.toLowerCase().includes(note.project.toLowerCase());
+
+    // Score: time proximity + content overlap + project match
+    if (timeClose && (overlap || projMatch)) return true;
+    if (overlap && projMatch) return true;
+    return false;
+  });
+
+  // Cap at the number of tasks the AI said it created
+  return candidates.slice(0, note.result.tasks_created);
+  } catch (e) { console.error('findLinkedTasks error', e); return []; }
+}
+
 /* === Render Notes === */
 function renderNotes() {
   const notes = filteredNotes();
@@ -214,6 +267,11 @@ function renderNotes() {
   const hlQuery = searchQuery.replace(/^(tag|project|priority):\S*\s*/, '');
 
   list.innerHTML = notes.map(n => {
+    try { return renderOneNote(n, hlQuery); } catch (e) { console.error('Render error for note', n.id, e); return ''; }
+  }).join('');
+}
+
+function renderOneNote(n, hlQuery) {
     const color = projectColor(n.project);
     const borderStyle = color ? `border-left-color: ${color}` : '';
     const isOptimistic = n._optimistic ? ' optimistic' : '';
@@ -227,8 +285,10 @@ function renderNotes() {
       if (n.result.summary) aiLine = esc(n.result.summary);
 
       const nuggets = [];
-      if (n.result.tasks_created) nuggets.push(`${n.result.tasks_created} task${n.result.tasks_created > 1 ? 's' : ''} spawned`);
-      if (n.result.knowledge_items) nuggets.push(`${n.result.knowledge_items} note${n.result.knowledge_items > 1 ? 's' : ''} filed`);
+      const taskVerbs = ['spawned', 'unleashed', 'conjured', 'manifested', 'willed into existence'];
+      const noteVerbs = ['created', 'discombobulated', 'schlepped into memory', 'absorbed', 'assimilated', 'yoinked into the vault', 'transmuted'];
+      if (n.result.tasks_created) nuggets.push(`${n.result.tasks_created} task${n.result.tasks_created > 1 ? 's' : ''} ${taskVerbs[n.id % taskVerbs.length]}`);
+      if (n.result.knowledge_items) nuggets.push(`${n.result.knowledge_items} note${n.result.knowledge_items > 1 ? 's' : ''} ${noteVerbs[n.id % noteVerbs.length]}`);
       if (n.result.entities?.length) nuggets.push(n.result.entities.slice(0, 4).map(esc).join(', '));
 
       summaryHtml = `<div class="note-ai">
@@ -238,7 +298,24 @@ function renderNotes() {
       </div>`;
     }
 
-    let resultHtml = '';
+    // Linked Vikunja tasks (expanded only)
+    const linkedTasks = findLinkedTasks(n);
+    let linkedTasksHtml = '';
+    if (linkedTasks.length) {
+      linkedTasksHtml = `<div class="note-linked-tasks">
+        <span class="linked-tasks-label">Spawned tasks</span>
+        ${linkedTasks.map(t => {
+          const tc = projectColor(t.project);
+          const due = formatDueDate(t.due_date);
+          return `<div class="linked-task${t.done ? ' done' : ''}" data-task-id="${t.id}">
+            <button class="task-check${t.done ? ' done' : ''}" onclick="event.stopPropagation(); toggleTaskDone(${t.id}, ${!t.done})"></button>
+            <span class="linked-task-title">${esc(t.title)}</span>
+            ${t.project ? `<span class="task-project-badge" style="background:${tc}">${esc(t.project)}</span>` : ''}
+            ${due ? `<span class="task-due${due.overdue ? ' overdue' : ''}">${due.text}</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
 
     const contentHtml = hlQuery ? highlight(n.content, hlQuery) : esc(n.content);
 
@@ -257,6 +334,7 @@ function renderNotes() {
       <div class="note-card${isOptimistic}${highlightClass}" data-id="${n.id}" style="${borderStyle}" onclick="toggleExpand(this)">
         <div class="note-content">${contentHtml}</div>
         ${summaryHtml}
+        ${linkedTasksHtml}
         <div class="note-meta">
           <span>${timeAgo(n.created_at)}</span>
           <span class="status-${n.status}">${n.status}</span>
@@ -264,7 +342,6 @@ function renderNotes() {
           ${n.project ? `<span class="badge badge-project" style="background:${color}">${esc(n.project)}</span>` : ''}
           ${n.tags.map(t => `<span class="badge badge-tag">${esc(t)}</span>`).join('')}
         </div>
-        ${resultHtml}
         <div class="note-actions">
           <div class="note-actions-left">
             <button class="copy-btn" onclick="event.stopPropagation(); copyText(this, '${btoa(encodeURIComponent(n.content))}')">Copy</button>
@@ -281,7 +358,6 @@ function renderNotes() {
         </div>
       </div>
     `;
-  }).join('');
 }
 
 /* === Expand / Collapse Note Cards === */
@@ -363,18 +439,34 @@ function setTag(tag) {
 }
 
 /* === Stats Strip === */
+let _prevStats = {};
+function bumpStat(el, newVal) {
+  const id = el.id;
+  if (_prevStats[id] !== undefined && _prevStats[id] !== newVal) {
+    el.classList.remove('bumped');
+    void el.offsetWidth; // reflow to re-trigger
+    el.classList.add('bumped');
+  }
+  _prevStats[id] = newVal;
+}
+
 function renderStats() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayTs = today.getTime() / 1000;
 
-  const todayNotes = allNotes.filter(n => n.created_at >= todayTs);
-  const pending = allNotes.filter(n => n.status === 'pending');
+  const todayCount = allNotes.filter(n => n.created_at >= todayTs).length;
+  const pendingCount = allNotes.filter(n => n.status === 'pending').length;
   const totalTasks = allNotes.reduce((sum, n) => sum + (n.result?.tasks_created || 0), 0);
 
-  $('#statToday').textContent = `${todayNotes.length} today`;
-  $('#statTasks').textContent = `${totalTasks} tasks`;
-  $('#statPending').textContent = `${pending.length} pending`;
+  const elToday = $('#statToday'), elTasks = $('#statTasks'), elPending = $('#statPending');
+  elToday.textContent = `${todayCount} today`;
+  elTasks.textContent = `${totalTasks} tasks`;
+  elPending.textContent = `${pendingCount} pending`;
+
+  bumpStat(elToday, todayCount);
+  bumpStat(elTasks, totalTasks);
+  bumpStat(elPending, pendingCount);
 }
 
 /* === Load Notes from API === */
@@ -554,6 +646,22 @@ searchInput.addEventListener('input', () => {
   searchQuery = searchInput.value.trim();
   renderNotes();
 });
+
+const SEARCH_HINTS = [
+  'Search notes... ( / )',
+  'Try tag:blocker',
+  'Try project:Backend',
+  'Try priority:high',
+  'Find anything...',
+  'What were we talking about?',
+];
+let _searchHintIdx = 0;
+setInterval(() => {
+  if (document.activeElement !== searchInput && !searchInput.value) {
+    _searchHintIdx = (_searchHintIdx + 1) % SEARCH_HINTS.length;
+    searchInput.placeholder = SEARCH_HINTS[_searchHintIdx];
+  }
+}, 6000);
 
 /* === Keyboard Shortcuts === */
 document.addEventListener('keydown', (e) => {
