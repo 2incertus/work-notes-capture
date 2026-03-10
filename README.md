@@ -1,8 +1,8 @@
 # Work Notes Capture
 
-A fast, keyboard-driven PWA for dumping meeting notes, action items, and random thoughts into one place -- with optional AI processing and task management.
+A fast, simple place for dumping meeting notes, action items, and random thoughts into one place -- with optional AI processing and task management.
 
-Zero-config by default. Notes save to SQLite. Plug in a webhook and a task manager if you want superpowers.
+Zero-config by default. Notes save to SQLite. Plug in a webhook and a task manager if you want superpowers and happen to be organizationally challenged. 
 
 ![stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20vanilla%20JS-e2a846)
 ![python](https://img.shields.io/badge/python-3.12-blue)
@@ -393,3 +393,4 @@ async def daily_brief():
 ## License
 
 MIT
+
